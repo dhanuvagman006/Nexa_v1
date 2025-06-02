@@ -1,19 +1,139 @@
 import base64
 from openai import OpenAI
-import tools
+
 
 client = OpenAI(
   base_url="https://openrouter.ai/api/v1",
   api_key="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",
 )
 
+#############################################TOOLS#############################################
+tools=[
+    {
+        "type": "function",
+        "function": {
+            "name": "turn_right",
+            "description": "Turn right by given number of degrees",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "degrees": {
+                        "type": "integer",
+                        "description": "Number of degrees to turn right"
+                    }
+                },
+                "required": ["degrees"]
+            }
+        }
+    },{
+        "type": "function",
+        "function": {
+            "name": "turn_left",
+            "description": "Turn left by given number of degrees",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "degrees": {
+                        "type": "integer",
+                        "description": "Number of degrees to turn left"
+                    }
+                },
+                "required": ["degrees"]
+            }
+        }
+    }, {
+        "type": "function",
+        "function": {
+            "name": "move_forward",
+            "description": "Move forward by given number of steps",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "steps": {
+                        "type": "integer",
+                        "description": "Number of steps to move forward"
+                    }
+                },
+                "required": ["steps"]
+            }
+        }
+    }, {
+        "type": "function",
+        "function": {
+            "name": "move_backward",
+            "description": "Move backward by given number of steps",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "steps": {
+                        "type": "integer",
+                        "description": "Number of steps to move backward"
+                    }
+                },
+                "required": ["steps"]
+            }
+        }
+    }
+]
 
-with open("test.jpg", "rb") as image_file:
-    encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
-data_uri = f"data:image/jpeg;base64,{encoded_string}"
 
-messages=[
-    {"role": "system", "content": "You are a independent humanoid robot."},
+def turn_right(deg):
+    """
+    Function to turn right by 90 degrees.
+    This function can be called by the AI model when it decides to turn right.
+    """
+    return(f"Turning right by {deg} degrees.")
+    
+def turn_left(deg):
+    """
+    Function to turn left by 90 degrees.
+    This function can be called by the AI model when it decides to turn left.
+    """
+    return(f"Turning left by {deg} degrees.")
+    # Add any additional logic for turning left here
+
+def move_forward(steps):
+    """
+    Function to move forward.
+    This function can be called by the AI model when it decides to move forward.
+    """
+    return(f"Moving forward by {steps}.")
+    # Add any additional logic for moving forward here
+
+def move_backward(steps):
+    """
+    Function to move backward.
+    This function can be called by the AI model when it decides to move backward.
+    """
+    return(f"Moving backward by {steps}.")
+    # Add any additional logic for moving backward here
+
+TOOL_MAPPING={
+    "turn_right": turn_right,
+    "turn_left": turn_left,
+    "move_forward": move_forward,
+    "move_backward": move_backward
+}
+
+
+
+def capture_image_base64():
+    cap = cv2.VideoCapture(0)
+
+    if not cap.isOpened():
+        raise RuntimeError("Cannot open camera")
+    ret, frame = cap.read()
+    cap.release() 
+    if not ret:
+        raise RuntimeError("Failed to capture image")
+    _, buffer = cv2.imencode('.jpg', frame)
+
+    jpg_as_text = base64.b64encode(buffer).decode('utf-8')
+    base64_url = f"data:image/jpeg;base64,{jpg_as_text}"
+    return base64_url
+
+msgs=[
+    {"role": "system", "content": "You are a smart and superpowerfull humanoid robot."},
     
     {
       "role": "user",
@@ -25,7 +145,7 @@ messages=[
         {
           "type": "image_url",
           "image_url": {
-            "url": data_uri
+            "url": capture_image_base64()
           }
         }
       ]
@@ -41,7 +161,10 @@ def call_llm(msgs):
     },
     tools=tools.tools,
     tool_choice="auto",
-    extra_body={},
+    extra_body={
+        "models": ["anthropic/claude-3.5-sonnet", "gryphe/mythomax-l2-13b"],
+    },
+    messages=msgs,
     model="mistralai/mistral-small-3.1-24b-instruct:free",
   )
   msgs.append(completion.choices[0].message.dict())
